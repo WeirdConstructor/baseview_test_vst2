@@ -10,13 +10,20 @@ name = "baseview_test_vst2"
 crate-type = ["cdylib"]
 
 [dependencies]
-baseview = { path = "../baseview" }
-dirs = "3"
-log = "0.4"
-log-panics = "2"
+baseview          = { path = "../baseview" }
+dirs              = "3"
+log               = "0.4"
+log-panics        = "2"
 raw-window-handle = "0.3"
-simplelog = "0.8"
-vst = "0.2"
+simplelog         = "0.8"
+vst               = "0.2"
+#;cairo-rs          = { version =  "0.9.1", features=["png", "freetype", "xlib"] }
+cairo-rs          = { path = "../cairo", features=["png", "freetype", "xlib"] }
+cairo-sys-rs      = { path = "../cairo/cairo-sys-rs/", features=["xlib"] }
+x11               = { version = "2.18.2" }
+freetype          = "0.7.0"
+#pangocairo        = "0.10.0"
+#pango             = "0.9.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24"

@@ -7,7 +7,12 @@ use baseview::{
     Size, Event, Parent, Window, WindowHandle, WindowHandler,
     WindowOpenOptions, WindowScalePolicy
 };
-use raw_window_handle::RawWindowHandle;
+use raw_window_handle::{
+    unix::XlibHandle,
+    HasRawWindowHandle,
+    RawWindowHandle
+};
+
 use vst::plugin::{Info, Plugin};
 use vst::editor::Editor;
 
@@ -16,8 +21,11 @@ const WINDOW_WIDTH: usize = 500;
 const WINDOW_HEIGHT: usize = 500;
 
 
-#[derive(Default)]
-struct TestWindowHandler;
+struct TestWindowHandler {
+    surf: cairo::Surface,
+    ctx:  cairo::Context,
+    once: bool,
+}
 
 
 impl WindowHandler for TestWindowHandler {
@@ -32,7 +40,39 @@ impl WindowHandler for TestWindowHandler {
     }
 
     fn on_frame(&mut self) {
-        
+        let cr = &mut self.ctx;
+
+        let ff = cairo::FontFace::toy_create(
+            "monospace",
+            cairo::FontSlant::Normal,
+            cairo::FontWeight::Normal);
+
+        cr.set_font_face(&ff);
+        cr.set_font_size(13.);
+//        cr.status().expect("ok");
+
+        cr.set_source_rgb(0.5, 0.5, 0.5);
+        cr.rectangle(0., 0., WINDOW_WIDTH as f64, WINDOW_HEIGHT as f64);
+        cr.fill();
+//        cr.status().expect("ok");
+
+        cr.set_source_rgb(0.2, 0.2, 0.2);
+        cr.rectangle(200., 200., 100., 100.);
+        cr.fill();
+//        cr.status().expect("ok");
+
+        cr.set_source_rgb(0.9, 0.9, 0.9);
+        cr.arc(200.0, 200.0, 40.0, 0.0, 6.0);
+        cr.fill();
+//        cr.status().expect("ok");
+
+        cr.set_source_rgb(0.2, 0.2, 1.0);
+        cr.move_to(10., 10.);
+        cr.show_text("Hello from Rust VST code!");
+        self.surf.flush();
+//        cr.status().expect("ok");
+
+//        println!("on_frame called!");
     }
 }
 
@@ -62,8 +102,45 @@ impl Editor for TestPluginEditor {
             parent: Parent::WithParent(parent),
         };
 
-        self.handle = Some(Window::open(options, |_|{
-            TestWindowHandler::default()
+        self.handle = Some(Window::open(options, |win|{
+            unsafe {
+                if let RawWindowHandle::Xlib(XlibHandle {
+                        window, display,
+                        ..
+                    }) = win.raw_window_handle()
+                {
+
+                    let vis =
+                        x11::xlib::XDefaultVisual(
+                            display as *mut x11::xlib::Display,
+                            x11::xlib::XDefaultScreen(
+                                display as *mut x11::xlib::Display));
+
+                    let surf =
+                        cairo_sys::cairo_xlib_surface_create(
+                            display as *mut x11::xlib::Display,
+                            window,
+                            vis,
+                            WINDOW_WIDTH  as i32,
+                            WINDOW_HEIGHT as i32
+                        );
+
+                    let surf =
+                        cairo::Surface::from_raw_full(surf)
+                            .expect("surface creation from xlib surface ok");
+                    let ctx = cairo::Context::new(&surf);
+
+                    TestWindowHandler {
+                        once:false,
+                        surf,
+                        ctx
+                    }
+                }
+                else
+                {
+                    panic!("Can only handle XlibHandle!");
+                }
+            }
         }));
 
         true
